@@ -36,6 +36,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 FIXES = ROOT / "fixes"
+VIOLATIONS = ROOT / "data" / "violations"
 
 # ---------------------------------------------------------------------------
 # Recorded outcomes. Track C verdicts come from Praneeth's EQY/SBY runs;
@@ -126,7 +127,7 @@ def hdr(n, name):
 
 def soc_slack(fname, clock):
     """Worst slack + violated count for one clock group, from a saved run."""
-    p = ROOT / fname
+    p = VIOLATIONS / fname
     if not p.exists():
         return None, None
     d = json.loads(p.read_text())
@@ -210,7 +211,7 @@ def run_case(tag, live=False):
           f"{sc.get('end_line')}  ({sc.get('scope')})")
     print(f"  model     : {d.get('meta', {}).get('model', '?')}")
     if live:
-        cmd = ["python3", "propose_fix.py", src, "--index",
+        cmd = ["python3", "scripts/propose_fix.py", src, "--index",
                str(d["violation_index"]), "--dry-run"]
         print(f"  $ {' '.join(cmd)}")
         subprocess.run(cmd, cwd=ROOT)

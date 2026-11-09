@@ -39,6 +39,19 @@ See `docs/REPORT.md`.
 
 ---
 
+## Quick start
+
+No CAD tools needed for the first three steps.
+
+| I want to… | Command |
+|---|---|
+| Replay the four recorded fixes | `python3 run_loop.py --all` |
+| Open the interactive demo | `python3 demo.py` → http://localhost:8000 |
+| Simulate the whole SoC | `bash scripts/run_soc_top.sh` (needs `iverilog`) |
+| Re-run synthesis / STA / equivalence | see *Reproducing the measurements* |
+
+---
+
 ## Run the loop (no tools required)
 
 This needs Python 3 and nothing else. No Docker, no OSS CAD Suite, no API key.
@@ -75,41 +88,58 @@ The decision logic is not duplicated. `demo.py` imports `decide()` from
 `run_loop.py` and refuses to start unless its gate-switching variant agrees
 with it on all four cases.
 
-Stage 2 has a button that re-runs `propose_fix.py` live against the same
+Stage 2 has a button that re-runs `scripts/propose_fix.py` live against the same
 violation. That one needs `.venv` and a valid session.
 
 ---
 
-## Layout
+## Repository layout
 
 ```
 run_loop.py            orchestrator; decision logic lives in decide()
 demo.py + demo/        interactive demo; imports decide() from run_loop.py
-modelcmp.py            repeat-run experiment: model choice vs run-to-run variance
-propose_fix.py         builds the prompt, calls the model, validates the patch
-escalate.py            widens edit scope, bounded to files on the violating path
-patch_schema.py        adds out_of_scope_fix to the patch schema (idempotent)
-parse_violation.py     OpenSTA report -> JSON violation bundles with RTL spans
-sanitize_netlist.py    makes a Yosys netlist parseable by OpenSTA
-fix_sdc.py             strips and reinserts generated-clock blocks
+
+scripts/               tooling (run from the repo root)
+  propose_fix.py         builds the prompt, calls the model, validates the patch
+  escalate.py            widens edit scope, bounded to files on the violating path
+  modelcmp.py            repeat-run experiment: model choice vs run-to-run variance
+  patch_schema.py        adds out_of_scope_fix to the patch schema (idempotent)
+  parse_violation.py     OpenSTA report -> JSON violation bundles with RTL spans
+  sanitize_netlist.py    makes a Yosys netlist parseable by OpenSTA
+  fix_sdc.py             strips and reinserts generated-clock blocks
+  gen_clocks.sh          prints create_generated_clock lines for the current netlist
+  run_soc_top.sh         iverilog simulation of the assembled SoC
+  legacy/                obsolete one-off scripts, kept for history
+
+synth/                 Yosys scripts (synth_soc_top.ys, synth_fir.ys, synth.ys)
+sta/                   OpenSTA Tcl scripts (setup, hold, power)
+constraints/           SDC files, one per measured configuration
 
 rtl/                   the benchmark SoC (own RTL + rtl/vendor/ upstream cores)
-tb/                    testbenches, tb_soc_top.v is the assembled-SoC one
+tb/                    testbenches; tb_soc_top.v is the assembled-SoC one
+firmware/              firmware.hex loaded by the SoC testbench
 formal/                three equivalence cases, configs, miters, logs
+
+data/violations/       soc_violations_*.json, the measurement set (see below)
 fixes/                 every proposal the model produced, accepted and rejected
-fixes_modelcmp/        same violation, Sonnet vs Opus
-reports/              OpenSTA setup, hold and power reports
-docs/REPORT.md         the report
-docs/HANDOFF.md        working state
+experiments/           escalate/ (scope escalation) and modelcmp/ (Sonnet vs Opus)
+reports/               OpenSTA setup, hold and power reports
+netlist/               synthesis output (gitignored, regenerate with Yosys)
+docs/                  REPORT.md (the report), HANDOFF.md (working state)
 ```
+
+Every command in this README is run **from the repository root**. The shell
+scripts change into the root themselves, so they also work from anywhere.
 
 `netlist/` is gitignored — netlists are 8 MB each and do not survive a clone.
 Re-synthesise before trusting any measurement against an on-disk netlist.
 
-`soc_violations_*.json` at the repo root are the measurement set:
+`data/violations/soc_violations_*.json` is the measurement set:
 `base2` (pre-UART-fix), `firbase_v2` (pre-FIR-fix, 31 violated), `FINAL` and
 `FINAL_v2` (both fixes, 3 violated, independently rebuilt),
 `FIRTREE_REJECTED` (proposal 4), `cpu200` (the PicoRV32 negative result).
+Each has a matching `*_excluded.json` listing paths that were recorded but not
+offered to the model.
 
 ---
 
@@ -122,13 +152,13 @@ sudo apt install iverilog        # simulation; not bundled with Yosys
 docker --version                 # Docker Engine, not Desktop
 ```
 
-Clone with `git clone`, not by downloading the ZIP. GitHub's ZIP extracts to
-`nebula-project-main`, and every path below assumes `nebula-project`.
-
 ```bash
-git clone https://github.com/Nihal1710/nebula-project.git
-cd nebula-project
+git clone https://github.com/Blackflash-BITS/Nebula-project.git
+cd Nebula-project
 ```
+
+Clone with `git clone` rather than downloading the ZIP, so the directory name
+and history match. On macOS, `brew install icarus-verilog` provides `iverilog`.
 
 Nothing else needs installing for synthesis or STA. The Docker image already
 contains OpenROAD-flow-scripts at `/OpenROAD-flow-scripts`, including the
@@ -173,37 +203,37 @@ export ORFS=/path/to/OpenROAD-flow-scripts
 
 The `.ys` scripts hardcode the same path, because Yosys does not expand
 environment variables in script files. If you had to set `ORFS`, edit the three
-`-liberty` lines in `synth_soc_top.ys` and `synth_fir.ys` to match.
+`-liberty` lines in `synth/synth_soc_top.ys` and `synth/synth_fir.ys` to match.
 
 ```bash
-yosys synth_soc_top.ys
-python3 sanitize_netlist.py netlist/soc_top_netlist.v netlist/soc_top_netlist_clean.v
+yosys synth/synth_soc_top.ys
+python3 scripts/sanitize_netlist.py netlist/soc_top_netlist.v netlist/soc_top_netlist_clean.v
 
-./gen_clocks.sh > fresh_clocks.txt
-python3 fix_sdc.py constraints_soc.sdc fresh_clocks.txt
-grep -c create_generated_clock constraints_soc.sdc          # must print 5
+./scripts/gen_clocks.sh > fresh_clocks.txt
+python3 scripts/fix_sdc.py constraints/constraints_soc.sdc fresh_clocks.txt
+grep -c create_generated_clock constraints/constraints_soc.sdc          # must print 5
 
-STA_OUT=run.rpt      $S -no_splash -exit sta_soc.tcl
-STA_OUT=run_hold.rpt $S -no_splash -exit sta_hold.tcl
+STA_OUT=run.rpt      $S -no_splash -exit sta/sta_soc.tcl
+STA_OUT=run_hold.rpt $S -no_splash -exit sta/sta_hold.tcl
 
-python3 parse_violation.py --report reports/run.rpt \
-  --netlist netlist/soc_top_netlist_clean.v --repo-root . --out soc_violations_run.json
+python3 scripts/parse_violation.py --report reports/run.rpt \
+  --netlist netlist/soc_top_netlist_clean.v --repo-root . --out data/violations/soc_violations_run.json
 ```
 
 `gen_clocks.sh` prints, it does not write. The generated-clock pin names change
-with every synthesis, which is why `fix_sdc.py` exists and why the `grep -c`
+with every synthesis, which is why `scripts/fix_sdc.py` exists and why the `grep -c`
 is not optional.
 
 ### Power
 
 ```bash
-NETLIST=netlist/soc_top_netlist_FIRBASE_clean.v SDC=constraints_soc_FIRBASE.sdc \
-  $S -no_splash -exit sta_power_noact.tcl > reports/power_FIRBASE.rpt 2>&1
-NETLIST=netlist/soc_top_netlist_FINAL_v2.v SDC=constraints_soc_FINAL_v2.sdc \
-  $S -no_splash -exit sta_power_noact.tcl > reports/power_FINAL.rpt 2>&1
+NETLIST=netlist/soc_top_netlist_FIRBASE_clean.v SDC=constraints/constraints_soc_FIRBASE.sdc \
+  $S -no_splash -exit sta/sta_power_noact.tcl > reports/power_FIRBASE.rpt 2>&1
+NETLIST=netlist/soc_top_netlist_FINAL_v2.v SDC=constraints/constraints_soc_FINAL_v2.sdc \
+  $S -no_splash -exit sta/sta_power_noact.tcl > reports/power_FINAL.rpt 2>&1
 ```
 
-`sta_power_noact.tcl` deliberately runs **no** `set_power_activity`. Both
+`sta/sta_power_noact.tcl` deliberately runs **no** `set_power_activity`. Both
 annotation strategies tried produced non-physical output (4e+15 W, NaN, inf);
 removing the annotation gives a finite, consistent report. The files
 `reports/power_*_v2.rpt` and the `-input` pair are kept as evidence of that
@@ -216,8 +246,8 @@ netlist against the current SDC silently builds a fictional clock network.
 Module-scope power for the FIR, which needs no generated clocks at all:
 
 ```bash
-NETLIST=netlist/fir_gl_BASE.v  $S -no_splash -exit sta_power_fir.tcl > reports/power_fir_BASE.rpt 2>&1
-NETLIST=netlist/fir_gl_FINAL.v $S -no_splash -exit sta_power_fir.tcl > reports/power_fir_FINAL.rpt 2>&1
+NETLIST=netlist/fir_gl_BASE.v  $S -no_splash -exit sta/sta_power_fir.tcl > reports/power_fir_BASE.rpt 2>&1
+NETLIST=netlist/fir_gl_FINAL.v $S -no_splash -exit sta/sta_power_fir.tcl > reports/power_fir_FINAL.rpt 2>&1
 ```
 
 ### Simulation
@@ -225,7 +255,7 @@ NETLIST=netlist/fir_gl_FINAL.v $S -no_splash -exit sta_power_fir.tcl > reports/p
 On the host, not in the container:
 
 ```bash
-bash run_soc_top.sh     # expect 4 PASS and "ALL 4 PERIPHERALS REACHED"
+bash scripts/run_soc_top.sh     # expect 4 PASS and "ALL 4 PERIPHERALS REACHED"
 ```
 
 Requires `iverilog` with `-g2012`. If you see `iverilog: command not found`,
@@ -257,7 +287,7 @@ against it is meaningless. The real 33-line baseline is
 `rtl/peripherals/fir_filter.v.orig`.
 
 ```bash
-ls -la netlist/*.v soc_violations_*.json
+ls -la netlist/*.v data/violations/soc_violations_*.json
 ```
 
 Compare mtimes. A violation JSON older than the netlist it claims to describe

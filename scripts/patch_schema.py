@@ -13,9 +13,9 @@ Idempotent - running twice is a no-op.
 from pathlib import Path
 import sys
 
-p = Path("propose_fix.py")
+p = Path(__file__).resolve().parent / "propose_fix.py"
 if not p.exists():
-    sys.exit("run from the repo root (propose_fix.py not found)")
+    sys.exit("propose_fix.py not found next to patch_schema.py")
 
 s = p.read_text()
 
@@ -23,7 +23,7 @@ if "out_of_scope_fix" in s:
     print("already patched - nothing to do")
     sys.exit(0)
 
-Path("propose_fix.py.preescalate").write_text(s)
+p.with_suffix(".py.preescalate").write_text(s)
 
 # ---- 1. schema field -------------------------------------------------------
 old_props = """        "rationale": {"type": "string",

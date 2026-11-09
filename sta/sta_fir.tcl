@@ -10,7 +10,7 @@ read_liberty $ORFS/flow/platforms/nangate45/lib/NangateOpenCellLibrary_typical.l
 read_verilog netlist/fir_wrapper_netlist_clean.v
 link_design fir_wrapper
  
-read_sdc constraints_fir.sdc
+read_sdc constraints/constraints_fir.sdc
  
 report_checks -path_delay max \
     -fields {slew cap input_pins} \

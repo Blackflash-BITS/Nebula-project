@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."   # always run from the repo root
 iverilog -g2012 \
   -I rtl/vendor/i2c/rtl/verilog \
   -o soc_top_sim.vvp \

@@ -10,9 +10,9 @@ Usage:
     pip install anthropic
     export ANTHROPIC_API_KEY=sk-...
 
-    python3 propose_fix.py fir_violations.json --list
-    python3 propose_fix.py fir_violations.json --clock fir_clk --whole-file --dry-run
-    python3 propose_fix.py fir_violations.json --clock fir_clk --whole-file
+    python3 scripts/propose_fix.py data/violations/fir_violations.json --list
+    python3 scripts/propose_fix.py data/violations/fir_violations.json --clock fir_clk --whole-file --dry-run
+    python3 scripts/propose_fix.py data/violations/fir_violations.json --clock fir_clk --whole-file
 """
 
 import argparse

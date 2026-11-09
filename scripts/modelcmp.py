@@ -17,7 +17,7 @@ lines that do not contain the fix. --whole-file hands over all 214 lines, which
 is what the recorded Sonnet/Opus comparison used. Results are grouped by scope
 in the report, because comparing across scopes compares nothing.
 
-Each run is written to fixes_modelcmp/runs/<model>_<n>_fix.json, so nothing
+Each run is written to experiments/modelcmp/runs/<model>_<n>_fix.json, so nothing
 recorded is overwritten and the raw records survive for inspection.
 """
 
@@ -30,10 +30,10 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-OUT = ROOT / "fixes_modelcmp" / "runs"
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "experiments/modelcmp" / "runs"
 
-VIOLATIONS = "soc_violations_base2.json"
+VIOLATIONS = "data/violations/soc_violations_base2.json"
 INDEX = 112
 MODELS = ["claude-sonnet-5", "claude-opus-4-1"]
 
@@ -48,7 +48,7 @@ def one_run(model, n, whole_file):
     tag = "whole" if whole_file else "narrow"
     tmp = OUT / f"_tmp_{model}_{tag}_{n}"
     tmp.mkdir(parents=True, exist_ok=True)
-    cmd = [venv_python(), "propose_fix.py", VIOLATIONS,
+    cmd = [venv_python(), "scripts/propose_fix.py", VIOLATIONS,
            "--index", str(INDEX), "--model", model, "--outdir", str(tmp)]
     if whole_file:
         cmd.append("--whole-file")

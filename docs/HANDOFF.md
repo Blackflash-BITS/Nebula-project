@@ -160,7 +160,7 @@ Implemented but untested — say so plainly.
 
 ## 5. Scope escalation (built this session)
 
-`propose_fix.py` picked its edit scope from `attributed[0]` — the *launch
+`scripts/propose_fix.py` picked its edit scope from `attributed[0]` — the *launch
 flop*. On multi-module paths that's often the wrong file.
 
 **UART violation 112 spans three files:**
@@ -174,9 +174,9 @@ correctly and declined because 55% of the delay was off-scope — then named
 `uart_rx.v:108-123` as where the fix belonged.
 
 **Built:**
-- `patch_schema.py` — adds `out_of_scope_fix` to the schema (machine-readable
+- `scripts/patch_schema.py` — adds `out_of_scope_fix` to the schema (machine-readable
   refusal), a prompt section, validator rules, and a `--scope-file` flag
-- `escalate.py` — walks the file ladder automatically, **bounded to files on
+- `scripts/escalate.py` — walks the file ladder automatically, **bounded to files on
   the violating path**. Terminal states: `SOLVED`, `REFUSED` (model names
   nowhere else — a real refusal), `EXHAUSTED`.
 - `run_loop.py` — end-to-end orchestrator with `--replay` (default),
@@ -190,7 +190,7 @@ correctly and declined because 55% of the delay was off-scope — then named
   paths run through one `NOR2_X1` driving 723 loads at ~700 ns. Zero survive
   the fanout filter (`MAX_STAGE_NS = 10.0`). Yosys does no buffer insertion —
   this is a flow artifact, not a design defect. Physical synthesis would be
-  needed. `soc_violations_cpu200.json`.
+  needed. `data/violations/soc_violations_cpu200.json`.
 - **No `retime` candidate exists.** Searched all paths for register
   imbalance; two candidates found, both in `clk_divider.v` with **+46.30** and
   **+3.42 ns** slack. Strategy implemented and validated, never exercised
@@ -206,7 +206,7 @@ correctly and declined because 55% of the delay was off-scope — then named
   can ever point at the logic causing a setup violation.**
 - **Model choice changes the outcome.** Identical prompts on UART violation
   112: Sonnet → `no_fix`, Opus → `retime` (validator clean, RTL differs from
-  input — not a disguised refusal). `fixes_modelcmp/`. Note Sonnet produced
+  input — not a disguised refusal). `experiments/modelcmp/`. Note Sonnet produced
   the *accepted* fix only when given cross-module context files.
 - **The loop is an iteration, not a single pass, and does not converge
   monotonically.** FIR was fixed twice (pipeline on the 8-term sum, then the
@@ -285,32 +285,32 @@ unset ANTHROPIC_API_KEY      # else it bills the API, which Pro doesn't include
 
 **Full flow:**
 ```bash
-yosys synth_soc_top.ys
-python3 sanitize_netlist.py netlist/soc_top_netlist.v netlist/soc_top_netlist_clean.v
-./gen_clocks.sh > fresh_clocks.txt && python3 fix_sdc.py constraints_soc.sdc fresh_clocks.txt
-grep -c create_generated_clock constraints_soc.sdc     # MUST be 5
-STA_OUT=<name>.rpt /OpenROAD-flow-scripts/tools/install/OpenROAD/bin/sta -no_splash -exit sta_soc.tcl
-STA_OUT=<name>_hold.rpt ... -exit sta_hold.tcl
-python3 parse_violation.py --report reports/<name>.rpt \
-  --netlist netlist/soc_top_netlist_clean.v --repo-root . --out soc_violations_<name>.json
-bash run_soc_top.sh          # iverilog SoC simulation, 4 PASS + "ALL 4 PERIPHERALS REACHED"
+yosys synth/synth_soc_top.ys
+python3 scripts/sanitize_netlist.py netlist/soc_top_netlist.v netlist/soc_top_netlist_clean.v
+./scripts/gen_clocks.sh > fresh_clocks.txt && python3 scripts/fix_sdc.py constraints/constraints_soc.sdc fresh_clocks.txt
+grep -c create_generated_clock constraints/constraints_soc.sdc     # MUST be 5
+STA_OUT=<name>.rpt /OpenROAD-flow-scripts/tools/install/OpenROAD/bin/sta -no_splash -exit sta/sta_soc.tcl
+STA_OUT=<name>_hold.rpt ... -exit sta/sta_hold.tcl
+python3 scripts/parse_violation.py --report reports/<name>.rpt \
+  --netlist netlist/soc_top_netlist_clean.v --repo-root . --out data/violations/soc_violations_<name>.json
+bash scripts/run_soc_top.sh          # iverilog SoC simulation, 4 PASS + "ALL 4 PERIPHERALS REACHED"
 ```
 
-**Key files:** `soc_violations_base2.json` (pre-UART-fix baseline),
-`soc_violations_firbase_v2.json` (pre-FIR-fix baseline, 31 violated),
-`soc_violations_FINAL.json` (both fixes, 3 violated),
-`soc_violations_FIRTREE_REJECTED.json` (proposal #4),
-`soc_violations_cpu200.json`, `constraints_soc_FINAL.sdc`,
+**Key files:** `data/violations/soc_violations_base2.json` (pre-UART-fix baseline),
+`data/violations/soc_violations_firbase_v2.json` (pre-FIR-fix baseline, 31 violated),
+`data/violations/soc_violations_FINAL.json` (both fixes, 3 violated),
+`data/violations/soc_violations_FIRTREE_REJECTED.json` (proposal #4),
+`data/violations/soc_violations_cpu200.json`, `constraints/constraints_soc_FINAL.sdc`,
 `fixes/*_ACCEPTED.json`, `formal/` (3 cases + logs).
 
 ---
 
 ## 10. Traps (learned the hard way — every one of these cost real time)
 
-- **`gen_clocks.sh` prints, it does not write.** Pasting appended three
+- **`scripts/gen_clocks.sh` prints, it does not write.** Pasting appended three
   stacked `create_generated_clock` blocks into the SDC → OpenSTA Error 374.
-  `fix_sdc.py` now strips and reinserts. Always `grep -c` for 5 afterwards.
-- **`sta_soc.tcl` had a hardcoded output path** and silently overwrote
+  `scripts/fix_sdc.py` now strips and reinserts. Always `grep -c` for 5 afterwards.
+- **`sta/sta_soc.tcl` had a hardcoded output path** and silently overwrote
   reports. Now `reports/$env(STA_OUT)`.
 - **`2>/dev/null` hid an argparse error** and made a failed run look like a
   successful one that found nothing. Drop it when debugging.
@@ -320,11 +320,11 @@ bash run_soc_top.sh          # iverilog SoC simulation, 4 PASS + "ALL 4 PERIPHER
   benchmark (`c[i] <= 1`, Yosys constant-folds it, multipliers vanish). The
   real 33-line baseline is `rtl/peripherals/fir_filter.v.orig`. Guard:
   `grep -c "c\[i\] <= 1"` must be **0**.
-- **`soc_violations_base2.json` was NOT a baseline** — the FIR fix was
+- **`data/violations/soc_violations_base2.json` was NOT a baseline** — the FIR fix was
   already in it (attributed to `fir_filter.v:30-38`, lines that only exist in
   the 45-line fixed file). Cost the whole FIR before/after. **Always check
   file mtimes against JSON mtimes.**
-- **`run_soc_top.sh` was missing `rtl/clk_divider.v`** → "unknown module type
+- **`scripts/run_soc_top.sh` was missing `rtl/clk_divider.v`** → "unknown module type
   div_domain". Fixed.
 - **`rtl/clk_divider.v` was untracked** while being required by synthesis —
   the repo could not build from a fresh clone. Fixed.
@@ -333,7 +333,7 @@ bash run_soc_top.sh          # iverilog SoC simulation, 4 PASS + "ALL 4 PERIPHER
   wrong and it cost Praneeth a syntax error).
 - **Repo was 455 MB.** `.venv` 284 MB, vendor waveforms 75 MB, tracked
   foundry liberty 5.1 MB, Cadence `.pak` 2.8 MB. Now 42 MB working tree,
-  6.3 MB tracked. `cleanup_repo.sh` did this; it archives to `_attic/` rather
+  6.3 MB tracked. `scripts/legacy/cleanup_repo.sh` did this; it archives to `_attic/` rather
   than deleting.
 
 ---

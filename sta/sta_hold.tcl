@@ -3,7 +3,7 @@ read_liberty $ORFS/flow/platforms/nangate45/lib/NangateOpenCellLibrary_typical.l
 read_verilog netlist/soc_top_netlist_clean.v
 link_design soc_top
 
-read_sdc constraints_soc.sdc
+read_sdc constraints/constraints_soc.sdc
 
 report_clock_properties
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "$0")/.."   # always run from the repo root
 # Regenerate create_generated_clock lines from the current netlist.
 NL=${NL:-netlist/soc_top_netlist_clean.v}
 find_q () { grep -B12 "\.Q($1)" $NL | grep -oE "_[0-9]+_ \($" | tail -1 | tr -d ' ('; }

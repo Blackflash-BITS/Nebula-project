@@ -41,15 +41,15 @@ Without it this would be a loop that only stops on success - i.e. one that
 pressures a correct refusal until it breaks.
 
 USAGE
-    python3 escalate.py soc_violations_base2.json --index 112
-    python3 escalate.py soc_violations_base2.json --index 112 --dry-run
-    python3 escalate.py soc_violations_base2.json --index 112 --max-rounds 4
+    python3 scripts/escalate.py data/violations/soc_violations_base2.json --index 112
+    python3 scripts/escalate.py data/violations/soc_violations_base2.json --index 112 --dry-run
+    python3 scripts/escalate.py data/violations/soc_violations_base2.json --index 112 --max-rounds 4
 """
 
 import argparse, json, subprocess, sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 BAR = "=" * 74
 
 
@@ -73,7 +73,7 @@ def path_files(violation):
 def run_propose(vjson, index, scope_file, context_files, dry_run,
                 outdir=None, extra=()):
     """One propose_fix.py invocation with an explicit edit scope."""
-    cmd = ["python3", "propose_fix.py", vjson, "--index", str(index),
+    cmd = ["python3", "scripts/propose_fix.py", vjson, "--index", str(index),
            "--whole-file", "--scope-file", scope_file]
     for c in context_files:
         cmd += ["--context-file", c]
@@ -102,7 +102,7 @@ def main():
     ap.add_argument("violations")
     ap.add_argument("--index", type=int, required=True)
     ap.add_argument("--max-rounds", type=int, default=4)
-    ap.add_argument("--outdir", default="fixes_escalate", metavar="DIR",
+    ap.add_argument("--outdir", default="experiments/escalate", metavar="DIR",
                     help="write fix records here instead of fixes/. Use this "
                          "to avoid overwriting recorded results - tags collide "
                          "on <module>_<clock>.")

@@ -164,7 +164,7 @@ accepted fixes, two before/after pairs. Reading one table as though it covers
 both understates the work.
 
 The final netlist was rebuilt independently on a later date and reproduces 3
-violated paths (`soc_violations_FINAL_v2.json`).
+violated paths (`data/violations/soc_violations_FINAL_v2.json`).
 
 ### Frequency
 
@@ -204,7 +204,7 @@ fix has a cost and it is measured, not hidden.
 The design-wide combinational figure needs an explanation, because a 61% drop
 out of a 0.4% cell reduction is not something a single RTL edit can plausibly
 do on its own. To find out where it comes from, `fir_wrapper` was synthesised
-and measured alone, before and after the fix, under `constraints_fir.sdc` —
+and measured alone, before and after the fix, under `constraints/constraints_fir.sdc` —
 which defines no generated clocks, so the whole class of constraint error that
 can affect a full-SoC run cannot occur.
 
@@ -472,8 +472,8 @@ all, which is the measured basis for section 7. And a single sample per
 violation is not evidence of what a model can or cannot do — a loop that fires
 once per violation will miss fixes the model is capable of finding, and will
 occasionally act on ones it should not. This experiment is ongoing;
-`modelcmp.py` reproduces it and the per-run records are in
-`fixes_modelcmp/runs/`.
+`scripts/modelcmp.py` reproduces it and the per-run records are in
+`experiments/modelcmp/runs/`.
 
 ---
 
@@ -500,9 +500,9 @@ produced the fix that was ultimately accepted.
 That refusal was the correct behaviour, and it was more useful than a fix would
 have been. Three pieces of machinery came out of it:
 
-- `patch_schema.py` adds an `out_of_scope_fix` field, making the refusal
+- `scripts/patch_schema.py` adds an `out_of_scope_fix` field, making the refusal
   machine-readable instead of prose the orchestrator has to parse.
-- `escalate.py` walks the file ladder automatically, **bounded to files that
+- `scripts/escalate.py` walks the file ladder automatically, **bounded to files that
   lie on the violating path** — the bound is what stops scope escalation from
   becoming "give the model the whole design", which would void the
   generalisation claim in section 1. Terminal states are `SOLVED`, `REFUSED`
@@ -578,7 +578,7 @@ experiment is incomplete at the time of writing.
 
 **Fix records do not capture their own invocation.** `meta` stores the model,
 cost, turn count and session id, but not the command line. Nothing in
-`fixes_modelcmp/uart_OPUS.json` records that it was run with `--whole-file`,
+`experiments/modelcmp/uart_OPUS.json` records that it was run with `--whole-file`,
 which made its conditions ambiguous until they were reconstructed from the
 recorded `edit_scope`. A record that cannot say how it was produced cannot be
 reproduced from itself.

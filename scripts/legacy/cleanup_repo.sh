@@ -16,6 +16,10 @@
 #   5  verify the repo can still build, and report
 # ============================================================================
 set -u
+# OBSOLETE: one-off pre-submission cleanup, kept for history only. It assumes the
+# old flat layout (files at the repo root) and would now move constraints/ into
+# _attic/. Do not run it.
+echo "cleanup_repo.sh is obsolete (repo layout has changed) - refusing to run"; exit 1
 
 ATTIC="_attic"
 mkdir -p "$ATTIC"
